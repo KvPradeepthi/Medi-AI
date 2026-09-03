@@ -1,0 +1,55 @@
+name: MediAI CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-on: '22'
+        cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        cache-dependency-path: 'ai-service/requirements.txt'
+
+    - name: Install Shared & Backend Dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Install Frontend Dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Install AI Service Dependencies
+      run: |
+        cd ai-service
+        pip install -r requirements.txt
+
+    - name: Build Backend (TypeScript compilation check)
+      run: |
+        cd backend
+        npm run build --if-present
+
+    - name: Build Frontend (Vite build check)
+      run: |
+        cd frontend
+        npm run build

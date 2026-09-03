@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+*/node_modules/
+.venv/
+*/.venv/
+venv/
+*/venv/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+
+# Environment & Secrets (NEVER COMMIT SENSITIVE KEYS)
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Build Outputs
+dist/
+*/dist/
+build/
+*/build/
+
+# Local databases, storage & runtime artifacts
+logs/
+*/logs/
+*.log
+uploads/
+*/uploads/
+chroma_db/
+*/chroma_db/
+*.json_data
+chroma_data_fallback.json
+*/chroma_data_fallback.json
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
