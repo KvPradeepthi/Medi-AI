@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:5000/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
+const AI_SERVICE_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000/api/v1/ai";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -74,16 +75,16 @@ export const chatAPI = {
 // AI services directly or routed via Node backend gateway
 export const aiAPI = {
   chatAssistant: (patientId: string, query: string, mode: string, history: any[]) =>
-    axios.post("http://localhost:8000/api/v1/ai/chat", {
+    axios.post(`${AI_SERVICE_BASE_URL}/chat`, {
       patient_id: patientId,
       query,
       mode,
       history,
     }),
   generateDiet: (data: any) =>
-    axios.post("http://localhost:8000/api/v1/ai/diet", data),
+    axios.post(`${AI_SERVICE_BASE_URL}/diet`, data),
   checkSymptoms: (data: { query: string; age: number; gender: string }) =>
-    axios.post("http://localhost:8000/api/v1/ai/symptoms", data),
+    axios.post(`${AI_SERVICE_BASE_URL}/symptoms`, data),
 };
 
 export default api;

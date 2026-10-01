@@ -17,6 +17,7 @@ from prompts.v1.symptom_prompt import SYMPTOM_SYSTEM_PROMPT, get_symptom_prompt
 from utils.db import index_report_text, query_patient_reports
 
 # Load environment variables
+load_dotenv()
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../.env"))
 
 # Configure Google Generative AI (Gemini) SDK

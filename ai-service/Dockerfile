@@ -13,9 +13,9 @@ RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r re
 
 # Copy source code
 COPY main.py ./
-COPY prompts/ ./ai_service/prompts/
-COPY schemas/ ./ai_service/schemas/
-COPY utils/ ./ai_service/utils/
+COPY prompts/ ./prompts/
+COPY schemas/ ./schemas/
+COPY utils/ ./utils/
 
 # Expose port
 EXPOSE 8000

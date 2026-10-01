@@ -46,7 +46,8 @@ const DoctorChat: React.FC = () => {
 
   // Setup Socket.io client gateway connection
   useEffect(() => {
-    const socket = io("http://localhost:5000");
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+    const socket = io(socketUrl);
     socketRef.current = socket;
 
     socket.on("receive_message", (message: IChatMessage) => {
