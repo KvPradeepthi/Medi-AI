@@ -27,6 +27,38 @@ if api_key:
 else:
     print("[WARNING] GEMINI_API_KEY is not defined. AI endpoints will fall back to simulated mock structures.")
 
+# Model cascade list: try modern Gemini models in order
+PRIMARY_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+FALLBACK_MODELS = [
+    PRIMARY_MODEL,
+    "gemini-3.8-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash"
+]
+# Deduplicate while preserving order
+AVAILABLE_MODELS = list(dict.fromkeys(FALLBACK_MODELS))
+
+def generate_with_gemini(contents, system_instruction=None, generation_config=None):
+    """
+    Execute Gemini model generation with graceful cascading fallback across models.
+    """
+    last_error = None
+    for model_name in AVAILABLE_MODELS:
+        try:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=system_instruction
+            )
+            res = model.generate_content(contents, generation_config=generation_config)
+            return res
+        except Exception as e:
+            last_error = e
+            print(f"[GEMINI FALLBACK] Model '{model_name}' failed: {e}. Trying next candidate...")
+            continue
+    raise last_error
+
 app = FastAPI(title="MediAI AI Service", version="1.0.0")
 
 app.add_middleware(
@@ -74,9 +106,6 @@ async def analyze_report(
             except Exception as e:
                 print(f"PDF local extraction failed: {e}. Falling back to multimodal Gemini.")
         
-        # Use gemini-2.5-flash which is extremely efficient and fast
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        
         # Prepare contents payload for Gemini (supports multimodal analysis)
         contents = []
         
@@ -93,11 +122,11 @@ async def analyze_report(
             contents.append(get_report_prompt(report_type, "Run OCR, extract findings, and compile clinical analysis."))
 
         # Call Gemini requesting structured JSON
-        response = model.generate_content(
+        response = generate_with_gemini(
             contents,
+            system_instruction=REPORT_SYSTEM_PROMPT,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json",
-                system_instruction=REPORT_SYSTEM_PROMPT,
                 temperature=0.1
             )
         )
@@ -147,13 +176,9 @@ def chat_assistant(req: ChatRequest):
         
         prompt = get_chat_prompt(req.mode, req.query, context_chunks, history_list)
         
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=CHAT_SYSTEM_PROMPT
-        )
-        
-        response = model.generate_content(
+        response = generate_with_gemini(
             prompt,
+            system_instruction=CHAT_SYSTEM_PROMPT,
             generation_config=genai.types.GenerationConfig(
                 temperature=0.4
             )
@@ -162,7 +187,8 @@ def chat_assistant(req: ChatRequest):
         return {"response": response.text}
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Chat assistant error: {e}")
+        return {"response": f"I received your inquiry, but encountered an issue with the AI model ({str(e)}). Please try again in a moment."}
 
 # 4. Diet generator
 @app.post("/api/v1/ai/diet")
@@ -193,12 +219,11 @@ def generate_diet(req: DietRequest):
             allergies=req.allergies
         )
         
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        response = model.generate_content(
+        response = generate_with_gemini(
             prompt,
+            system_instruction=DIET_SYSTEM_PROMPT,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json",
-                system_instruction=DIET_SYSTEM_PROMPT,
                 temperature=0.2
             )
         )
@@ -223,13 +248,11 @@ def check_symptoms(req: SymptomRequest):
         
     try:
         prompt = get_symptom_prompt(req.query, req.age, req.gender)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        
-        response = model.generate_content(
+        response = generate_with_gemini(
             prompt,
+            system_instruction=SYMPTOM_SYSTEM_PROMPT,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json",
-                system_instruction=SYMPTOM_SYSTEM_PROMPT,
                 temperature=0.2
             )
         )
@@ -256,8 +279,7 @@ def generate_health_summary(req: HealthSummaryRequest):
             f"Provide direct clinical summary suggestions in 2-3 sentences. Do not use placeholders."
         )
         
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        response = model.generate_content(prompt)
+        response = generate_with_gemini(prompt)
         
         return {"summary": response.text.strip()}
     except Exception as e:
