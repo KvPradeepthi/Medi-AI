@@ -29,9 +29,44 @@ export class UserService {
     return this.userRepository.findById(id);
   }
 
-  async updateProfile(id: string, updateData: Partial<IUser>): Promise<IUser | null> {
+  async updateProfile(id: string, updateData: any, isAdmin: boolean = false): Promise<IUser | null> {
     logger.info(`Updating profile for user: ${id}`);
-    return this.userRepository.update(id, updateData);
+
+    // Explicitly reject any attempt to escalate role or approval status by non-admins
+    if (!isAdmin) {
+      if (updateData.role !== undefined || updateData.status !== undefined) {
+        logger.warn(`Unauthorized role/status escalation attempt on user ${id}`);
+        throw new Error("Modifying role or account status is not permitted.");
+      }
+    }
+
+    // Whitelist only safe mutable profile fields
+    const allowedFields = [
+      "name",
+      "age",
+      "gender",
+      "bloodGroup",
+      "phone",
+      "medicalHistory",
+      "allergies",
+      "emergencyContact",
+      "specialization",
+      "hospital",
+      "availability",
+    ];
+
+    if (isAdmin) {
+      allowedFields.push("role", "status", "rating");
+    }
+
+    const sanitizedData: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (updateData[key] !== undefined) {
+        sanitizedData[key] = updateData[key];
+      }
+    }
+
+    return this.userRepository.update(id, sanitizedData);
   }
 
   // AI Health Score Generation (Fitbit style)

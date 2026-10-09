@@ -1,9 +1,11 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 import { UserRepository } from "../repositories/UserRepository";
-import { IUser } from "../models/User";
+import User, { IUser } from "../models/User";
 import { RegisterPatientDto, RegisterDoctorDto, LoginDto } from "../dto/AuthDto";
 
 export class AuthService {
@@ -110,42 +112,55 @@ export class AuthService {
   }
 
   private async googleLogin(googleToken: string): Promise<{ user: IUser; token: string }> {
-    // In standard configuration, we decode the Google JWT token
-    // For local testing or if keys are empty, we allow a safe simulation
-    let email = "";
-    let name = "";
-    let googleId = "";
-
-    try {
-      if (env.GOOGLE_CLIENT_ID) {
-        // Real Google verify simulation / decode
-        const payload = jwt.decode(googleToken) as any;
-        if (payload && payload.email) {
-          email = payload.email;
-          name = payload.name || email.split("@")[0];
-          googleId = payload.sub || "google_" + Date.now();
-        } else {
-          throw new Error("Invalid JWT token format from Google");
-        }
-      } else {
-        // Simulation mode for recruiter presentation
-        logger.info("Google credentials missing. Simulating sign-in with mock OAuth payload.");
-        const mockPayload = JSON.parse(Buffer.from(googleToken, "base64").toString());
-        email = mockPayload.email || "demo.patient@gmail.com";
-        name = mockPayload.name || "Demo Google User";
-        googleId = mockPayload.sub || "google_mock_12345";
-      }
-    } catch (e: any) {
-      logger.error(`Google Token decoding failed: ${e.message}. Using default mock values.`);
-      email = "demo.patient@gmail.com";
-      name = "Demo Google User";
-      googleId = "google_mock_12345";
+    if (!googleToken) {
+      throw new Error("Google token is required for Google authentication");
     }
+
+    if (!env.GOOGLE_CLIENT_ID) {
+      throw new Error(
+        "Google Sign-In is not configured on the server. Please contact administrator or sign in with email and password."
+      );
+    }
+
+    const client = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: googleToken,
+        audience: env.GOOGLE_CLIENT_ID,
+      });
+    } catch (err: any) {
+      logger.warn(`Google token verification failed: ${err.message}`);
+      throw new Error("Invalid or expired Google authentication token");
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload) {
+      throw new Error("Invalid Google token payload");
+    }
+
+    // Verify token claims per OpenID Connect specifications
+    const issuer = payload.iss;
+    if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") {
+      throw new Error("Invalid token issuer");
+    }
+
+    if (!payload.email) {
+      throw new Error("Google account does not have an associated email address");
+    }
+
+    if (!payload.email_verified) {
+      throw new Error("Google email address is not verified");
+    }
+
+    const email = payload.email.toLowerCase().trim();
+    const name = payload.name || email.split("@")[0];
+    const googleId = payload.sub;
 
     let user = await this.userRepository.findByEmail(email);
 
     if (!user) {
-      // Auto register patient
+      // Auto-register new Google user ONLY as a patient. Never admin, never doctor.
       user = await this.userRepository.create({
         name,
         email,
@@ -154,17 +169,104 @@ export class AuthService {
         medicalHistory: [],
         allergies: [],
       });
-      logger.info(`Auto-registered patient via Google: ${email}`);
+      logger.info(`Auto-registered patient via verified Google sign-in: ${email}`);
     } else {
+      // Existing user: check if user already has a different googleId
+      if (user.googleId && user.googleId !== googleId) {
+        throw new Error("Google account identity mismatch for this email address");
+      }
       if (!user.googleId) {
-        // Link account
+        // Link Google ID
         user.googleId = googleId;
         await this.userRepository.update(user._id.toString(), { googleId });
-        logger.info(`Linked existing user ${email} with Google login`);
+        logger.info(`Linked verified Google account to user: ${email}`);
+      }
+
+      // Check doctor approval
+      if (user.role === "doctor" && user.status !== "approved") {
+        throw new Error("Your doctor account has not been approved by an administrator yet.");
       }
     }
 
     const token = this.generateToken(user._id.toString());
     return { user, token };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    if (!email) {
+      throw new Error("Email address is required");
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.userRepository.findByEmail(normalizedEmail);
+
+    if (user) {
+      // Cryptographically secure token
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiration
+
+      await User.findByIdAndUpdate(user._id, {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: expires,
+      });
+
+      logger.info(`Password reset token generated for user: ${normalizedEmail}`);
+      // In production with an email provider (SES, SendGrid, SMTP), send email with rawToken here.
+      // Do NOT log the token or return it in the HTTP response.
+    }
+
+    return {
+      message: "If an account with that email exists, password reset instructions have been sent.",
+    };
+  }
+
+  async resetPassword(dto: {
+    email?: string;
+    token?: string;
+    otp?: string;
+    newPassword?: string;
+    password?: string;
+  }): Promise<{ message: string }> {
+    const rawToken = dto.token || dto.otp;
+    const newPassword = dto.newPassword || dto.password;
+
+    if (!rawToken) {
+      throw new Error("Password reset token is required");
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("New password must be at least 6 characters long");
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    const query: any = {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    };
+
+    if (dto.email) {
+      query.email = dto.email.toLowerCase().trim();
+    }
+
+    const user = await User.findOne(query);
+
+    if (!user) {
+      throw new Error("Invalid or expired password reset token");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    logger.info(`Password reset successfully completed for user: ${user.email}`);
+    return {
+      message: "Your password has been successfully reset. You may now log in.",
+    };
   }
 }

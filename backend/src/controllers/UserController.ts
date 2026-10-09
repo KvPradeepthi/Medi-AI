@@ -19,7 +19,12 @@ export class UserController {
 
   updateProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const updated = await this.userService.updateProfile(req.user?._id.toString() || "", req.body);
+      const isAdmin = req.user?.role === "admin";
+      const updated = await this.userService.updateProfile(
+        req.user?._id.toString() || "",
+        req.body,
+        isAdmin
+      );
       return res.status(200).json(updated);
     } catch (error: any) {
       res.status(400);

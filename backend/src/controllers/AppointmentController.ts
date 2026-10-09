@@ -46,7 +46,9 @@ export class AppointmentController {
 
   cancel = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const updated = await this.appointmentService.cancelAppointment(req.params.id);
+      const userId = req.user?._id.toString();
+      const userRole = req.user?.role;
+      const updated = await this.appointmentService.cancelAppointment(req.params.id, userId, userRole);
       return res.status(200).json(updated);
     } catch (error: any) {
       res.status(400);
@@ -56,7 +58,9 @@ export class AppointmentController {
 
   complete = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const updated = await this.appointmentService.completeAppointment(req.params.id);
+      const doctorId = req.user?._id.toString();
+      const userRole = req.user?.role;
+      const updated = await this.appointmentService.completeAppointment(req.params.id, doctorId, userRole);
       return res.status(200).json(updated);
     } catch (error: any) {
       res.status(400);
@@ -66,8 +70,15 @@ export class AppointmentController {
 
   prescribe = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      const doctorId = req.user?._id.toString();
+      const userRole = req.user?.role;
       logger.info(`Prescribing medicines for appointment: ${req.params.id}`);
-      const updated = await this.appointmentService.prescribeMedicines(req.params.id, req.body);
+      const updated = await this.appointmentService.prescribeMedicines(
+        req.params.id,
+        req.body,
+        doctorId,
+        userRole
+      );
       return res.status(200).json(updated);
     } catch (error: any) {
       res.status(400);

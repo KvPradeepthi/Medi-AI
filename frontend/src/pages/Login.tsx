@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sparkles, Mail, Lock, ArrowRight, Chrome } from "lucide-react";
@@ -12,13 +12,81 @@ const Login: React.FC = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  // Initialize Google Identity Services if client ID is configured
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const handleGoogleCredentialResponse = async (response: any) => {
+      if (!response?.credential) {
+        setError("Failed to obtain Google authentication credentials.");
+        return;
+      }
+      setError("");
+      setIsLoading(true);
+      try {
+        await login("", undefined, response.credential);
+        setIsLoading(false);
+        navigate("/dashboard");
+      } catch (err: any) {
+        setIsLoading(false);
+        setError(err || "Google authentication failed.");
+      }
+    };
+
+    // Load Google GIS script dynamically if not present
+    const existingScript = document.getElementById("google-gis-script");
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.id = "google-gis-script";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        if ((window as any).google?.accounts?.id) {
+          (window as any).google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleCredentialResponse,
+          });
+          const buttonElement = document.getElementById("google-signin-btn-container");
+          if (buttonElement) {
+            (window as any).google.accounts.id.renderButton(buttonElement, {
+              theme: "filled_blue",
+              size: "large",
+              width: 380,
+              text: "continue_with",
+              shape: "rectangular",
+            });
+          }
+        }
+      };
+      document.body.appendChild(script);
+    } else if ((window as any).google?.accounts?.id) {
+      (window as any).google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredentialResponse,
+      });
+      const buttonElement = document.getElementById("google-signin-btn-container");
+      if (buttonElement) {
+        (window as any).google.accounts.id.renderButton(buttonElement, {
+          theme: "filled_blue",
+          size: "large",
+          width: 380,
+          text: "continue_with",
+          shape: "rectangular",
+        });
+      }
+    }
+  }, [googleClientId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      const user = await login(email, password);
+      await login(email, password);
       setIsLoading(false);
       navigate("/dashboard");
     } catch (err: any) {
@@ -27,29 +95,29 @@ const Login: React.FC = () => {
     }
   };
 
-  // Google Login Simulation
-  const handleGoogleLogin = async (role: "patient" | "doctor" | "admin") => {
-    setError("");
-    setIsLoading(true);
-    
-    // Choose simulation credentials
-    const simulatedPayloads = {
-      patient: { email: "likhitha.patient@gmail.com", name: "Likhitha Patel", sub: "google_p_12345" },
-      doctor: { email: "dr.sharma@hospital.com", name: "Dr. Ajay Sharma", sub: "google_d_67890" },
-      admin: { email: "admin.mediai@gmail.com", name: "Admin Portal Owner", sub: "google_a_54321" },
-    };
-
-    const payload = simulatedPayloads[role];
-    const base64Token = btoa(JSON.stringify(payload));
-
-    try {
-      await login(payload.email, undefined, base64Token);
-      setIsLoading(false);
-      navigate("/dashboard");
-    } catch (err: any) {
-      setIsLoading(false);
-      setError(err || "Google Authentication simulation failed.");
+  const handleManualGoogleClick = () => {
+    if (!googleClientId) {
+      setError(
+        "Google Sign-In is not configured. Please configure VITE_GOOGLE_CLIENT_ID or sign in with email and password."
+      );
+      return;
     }
+    if ((window as any).google?.accounts?.id) {
+      (window as any).google.accounts.id.prompt();
+    }
+  };
+
+  // Demo credential autofill helper (sets real password for bcrypt verification)
+  const fillDemoCredentials = (role: "patient" | "doctor" | "admin") => {
+    const credentials = {
+      patient: { email: "likhitha.patient@gmail.com", pass: "password123" },
+      doctor: { email: "dr.sharma@hospital.com", pass: "password123" },
+      admin: { email: "admin.mediai@gmail.com", pass: "password123" },
+    };
+    const target = credentials[role];
+    setEmail(target.email);
+    setPassword(target.pass);
+    setError("");
   };
 
   return (
@@ -120,33 +188,53 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        {/* Separator line */}
-        <div className="relative my-8 flex items-center justify-center">
+        {/* Google OAuth Section */}
+        <div className="relative my-6 flex items-center justify-center">
           <div className="absolute inset-0 w-full border-t border-slate-800/80"></div>
           <span className="relative z-10 px-3 bg-[#0c1223] text-xs font-semibold text-slate-500 uppercase">
-            Demo SSO Quick Login
+            Or Continue With
           </span>
         </div>
 
-        {/* Quick Multi-role Logins for Reviewers */}
+        {googleClientId ? (
+          <div id="google-signin-btn-container" className="flex justify-center w-full min-h-[44px]"></div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleManualGoogleClick}
+            className="w-full py-3 px-4 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-xs font-semibold text-slate-300 flex items-center justify-center gap-3 transition"
+          >
+            <Chrome className="w-4 h-4 text-emerald-400" />
+            Sign in with Google
+          </button>
+        )}
+
+        {/* Demo Credentials Helper */}
+        <div className="relative my-6 flex items-center justify-center">
+          <div className="absolute inset-0 w-full border-t border-slate-800/80"></div>
+          <span className="relative z-10 px-3 bg-[#0c1223] text-[10px] font-semibold text-slate-500 uppercase">
+            Autofill Demo Credentials
+          </span>
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => handleGoogleLogin("patient")}
+            onClick={() => fillDemoCredentials("patient")}
             className="py-2 px-1 text-center bg-slate-900/60 hover:bg-slate-800/60 border border-slate-850 rounded-xl text-[10px] font-bold text-emerald-400 transition"
           >
             Patient
           </button>
           <button
             type="button"
-            onClick={() => handleGoogleLogin("doctor")}
+            onClick={() => fillDemoCredentials("doctor")}
             className="py-2 px-1 text-center bg-slate-900/60 hover:bg-slate-800/60 border border-slate-850 rounded-xl text-[10px] font-bold text-blue-400 transition"
           >
             Doctor
           </button>
           <button
             type="button"
-            onClick={() => handleGoogleLogin("admin")}
+            onClick={() => fillDemoCredentials("admin")}
             className="py-2 px-1 text-center bg-slate-900/60 hover:bg-slate-800/60 border border-slate-850 rounded-xl text-[10px] font-bold text-violet-400 transition"
           >
             Admin

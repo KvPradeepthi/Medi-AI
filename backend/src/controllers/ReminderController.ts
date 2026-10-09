@@ -44,7 +44,14 @@ export class ReminderController {
 
   updateLog = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const updated = await this.reminderService.updateReminderLog(req.params.id, req.body);
+      const userId = req.user?._id.toString();
+      const userRole = req.user?.role;
+      const updated = await this.reminderService.updateReminderLog(
+        req.params.id,
+        req.body,
+        userId,
+        userRole
+      );
       return res.status(200).json(updated);
     } catch (error: any) {
       res.status(400);
@@ -54,7 +61,13 @@ export class ReminderController {
 
   delete = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const deleted = await this.reminderService.deleteReminder(req.params.id);
+      const userId = req.user?._id.toString();
+      const userRole = req.user?.role;
+      const deleted = await this.reminderService.deleteReminder(
+        req.params.id,
+        userId,
+        userRole
+      );
       return res.status(200).json(deleted);
     } catch (error: any) {
       res.status(400);

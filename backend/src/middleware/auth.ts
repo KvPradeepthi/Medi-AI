@@ -36,6 +36,11 @@ export const protect = async (
       return res.status(401).json({ message: "Not authorized, user not found" });
     }
 
+    if (user.role === "doctor" && user.status !== "approved") {
+      logger.warn(`Doctor account ${user.email} attempted access without approval (Status: ${user.status}).`);
+      return res.status(403).json({ message: "Doctor account pending approval or deactivated" });
+    }
+
     req.user = user;
     next();
   } catch (error: any) {

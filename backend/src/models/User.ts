@@ -34,6 +34,8 @@ export interface IUser extends Document {
   availability: IAvailability[];
   status: "pending" | "approved" | "rejected";
   rating: number;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
 }
 
 const UserSchema: Schema = new Schema(
@@ -43,6 +45,8 @@ const UserSchema: Schema = new Schema(
     password: { type: String },
     role: { type: String, enum: ["patient", "doctor", "admin"], default: "patient" },
     googleId: { type: String },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     
     // Patient Details
     age: { type: Number },

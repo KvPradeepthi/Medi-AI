@@ -23,7 +23,9 @@ import { errorHandler } from "./middleware/error";
 
 // 1. Initialize Express and Connect Database
 const app = express();
-connectDB();
+if (process.env.NODE_ENV !== "test") {
+  connectDB();
+}
 
 // 2. Configure Middlewares
 app.use(cors());
@@ -79,8 +81,13 @@ const io = new SocketIOServer(server, {
 
 setupSockets(io);
 
-// 7. Start listener
+// 7. Start listener if not running unit/integration tests
 const PORT = env.PORT;
-server.listen(PORT, () => {
-  logger.info(`MediAI Server running in ${env.NODE_ENV} mode on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, () => {
+    logger.info(`MediAI Server running in ${env.NODE_ENV} mode on port ${PORT}`);
+  });
+}
+
+export { app, server, io };
+export default app;

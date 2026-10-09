@@ -38,9 +38,9 @@ export class ReportController {
 
   getHistory = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // Patients view their own, Doctors can query specific patientId via query parameter
+      // Patients view their own, Doctors and Admins can query specific patientId via query parameter
       let patientId = req.user?._id.toString();
-      if (req.user?.role === "doctor" && req.query.patientId) {
+      if ((req.user?.role === "doctor" || req.user?.role === "admin") && req.query.patientId) {
         patientId = req.query.patientId as string;
       }
 
@@ -62,6 +62,15 @@ export class ReportController {
       if (!report) {
         return res.status(404).json({ message: "Report details not found" });
       }
+
+      // Check IDOR authorization: patients may only view their own reports
+      const userId = req.user?._id.toString();
+      const userRole = req.user?.role;
+      if (userRole === "patient" && report.patientId.toString() !== userId) {
+        logger.warn(`IDOR blocked: Patient ${userId} attempted to view report ${report._id} belonging to ${report.patientId}`);
+        return res.status(403).json({ message: "Forbidden: You do not have permission to view this report" });
+      }
+
       return res.status(200).json(report);
     } catch (error: any) {
       res.status(500);

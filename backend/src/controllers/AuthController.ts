@@ -41,13 +41,8 @@ export class AuthController {
   forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info(`Forgot password request for: ${req.body.email}`);
-      // Simulate sending OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      logger.info(`Simulated OTP for ${req.body.email}: ${otp}`);
-      return res.status(200).json({ 
-        message: "An OTP has been sent to your registered email address.",
-        simulatedOtp: otp // sent back for demo purposes so it is fully testable!
-      });
+      const result = await this.authService.forgotPassword(req.body.email);
+      return res.status(200).json(result);
     } catch (error: any) {
       res.status(400);
       next(error);
@@ -56,12 +51,9 @@ export class AuthController {
 
   resetPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      logger.info(`Reset password request for: ${req.body.email}`);
-      // Simple OTP verification demo
-      if (req.body.otp !== "123456" && !req.body.otp) {
-        return res.status(400).json({ message: "Invalid or expired OTP" });
-      }
-      return res.status(200).json({ message: "Your password has been successfully reset." });
+      logger.info(`Reset password request for: ${req.body.email || "user"}`);
+      const result = await this.authService.resetPassword(req.body);
+      return res.status(200).json(result);
     } catch (error: any) {
       res.status(400);
       next(error);

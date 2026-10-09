@@ -44,20 +44,73 @@ export class AppointmentService {
     return this.appointmentRepository.findById(id);
   }
 
-  async cancelAppointment(id: string): Promise<IAppointment | null> {
+  async cancelAppointment(
+    id: string,
+    userId?: string,
+    userRole?: string
+  ): Promise<IAppointment | null> {
+    const appointment = await this.appointmentRepository.findById(id);
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    if (userId && userRole) {
+      const patientId =
+        (appointment.patientId as any)?._id?.toString() || appointment.patientId?.toString();
+      const doctorId =
+        (appointment.doctorId as any)?._id?.toString() || appointment.doctorId?.toString();
+
+      if (userRole === "patient" && patientId !== userId) {
+        throw new Error("Forbidden: You do not have permission to cancel this appointment");
+      }
+      if (userRole === "doctor" && doctorId !== userId) {
+        throw new Error("Forbidden: You do not have permission to cancel this appointment");
+      }
+    }
+
     logger.info(`Cancelling appointment: ${id}`);
     return this.appointmentRepository.update(id, { status: "cancelled" });
   }
 
-  async completeAppointment(id: string): Promise<IAppointment | null> {
+  async completeAppointment(
+    id: string,
+    doctorId?: string,
+    userRole?: string
+  ): Promise<IAppointment | null> {
+    const appointment = await this.appointmentRepository.findById(id);
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+
+    if (doctorId && userRole !== "admin") {
+      const assignedDoctorId =
+        (appointment.doctorId as any)?._id?.toString() || appointment.doctorId?.toString();
+      if (assignedDoctorId !== doctorId) {
+        throw new Error("Forbidden: You are not the assigned doctor for this appointment");
+      }
+    }
+
     logger.info(`Completing appointment: ${id}`);
     return this.appointmentRepository.update(id, { status: "completed" });
   }
 
-  async prescribeMedicines(id: string, dto: UpdatePrescriptionDto): Promise<IAppointment | null> {
+  async prescribeMedicines(
+    id: string,
+    dto: UpdatePrescriptionDto,
+    doctorId?: string,
+    userRole?: string
+  ): Promise<IAppointment | null> {
     const appointment = await this.appointmentRepository.findById(id);
     if (!appointment) {
       throw new Error("Appointment not found");
+    }
+
+    if (doctorId && userRole !== "admin") {
+      const assignedDoctorId =
+        (appointment.doctorId as any)?._id?.toString() || appointment.doctorId?.toString();
+      if (assignedDoctorId !== doctorId) {
+        throw new Error("Forbidden: You are not the assigned doctor for this appointment");
+      }
     }
 
     const prescription = {

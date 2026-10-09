@@ -44,6 +44,11 @@ jobs:
         cd ai-service
         pip install -r requirements.txt
 
+    - name: Run Backend Security and Unit Tests
+      run: |
+        cd backend
+        npm test
+
     - name: Build Backend (TypeScript compilation check)
       run: |
         cd backend

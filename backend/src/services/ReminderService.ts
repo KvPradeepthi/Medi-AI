@@ -27,11 +27,21 @@ export class ReminderService {
 
   async updateReminderLog(
     reminderId: string,
-    dto: UpdateReminderLogDto
+    dto: UpdateReminderLogDto,
+    userId?: string,
+    userRole?: string
   ): Promise<IMedicineReminder | null> {
     const reminder = await this.reminderRepository.findById(reminderId);
     if (!reminder) {
       throw new Error("Medicine reminder not found");
+    }
+
+    if (userId && userRole !== "admin") {
+      const patientId =
+        (reminder.patientId as any)?._id?.toString() || reminder.patientId?.toString();
+      if (patientId !== userId) {
+        throw new Error("Forbidden: You do not have permission to modify this reminder");
+      }
     }
 
     // Check if log entry for this date and slot already exists
@@ -58,7 +68,24 @@ export class ReminderService {
     return updated;
   }
 
-  async deleteReminder(id: string): Promise<IMedicineReminder | null> {
+  async deleteReminder(
+    id: string,
+    userId?: string,
+    userRole?: string
+  ): Promise<IMedicineReminder | null> {
+    const reminder = await this.reminderRepository.findById(id);
+    if (!reminder) {
+      throw new Error("Medicine reminder not found");
+    }
+
+    if (userId && userRole !== "admin") {
+      const patientId =
+        (reminder.patientId as any)?._id?.toString() || reminder.patientId?.toString();
+      if (patientId !== userId) {
+        throw new Error("Forbidden: You do not have permission to delete this reminder");
+      }
+    }
+
     logger.info(`Deleting medicine reminder: ${id}`);
     return this.reminderRepository.delete(id);
   }

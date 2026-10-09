@@ -84,8 +84,10 @@ async def analyze_report(
     report_type: str = Form("Other")
 ):
     if not api_key:
-        # Return fallback mock structured response if key is missing
-        return get_mock_analysis(report_type)
+        raise HTTPException(
+            status_code=503,
+            detail="AI analysis service is unavailable because GEMINI_API_KEY is not configured."
+        )
 
     try:
         file_bytes = await file.read()
@@ -144,7 +146,7 @@ async def analyze_report(
         
     except Exception as e:
         print(f"Gemini analysis exception: {e}")
-        return get_mock_analysis(report_type)
+        raise HTTPException(status_code=502, detail=f"AI model analysis failed: {str(e)}")
 
 # 2. ChromaDB RAG index updates
 @app.post("/api/v1/ai/index-report")
@@ -165,7 +167,10 @@ def index_report(req: ReportIndexRequest):
 @app.post("/api/v1/ai/chat")
 def chat_assistant(req: ChatRequest):
     if not api_key:
-        return {"response": "Hi, I am the MediAI health assistant. (Simulation mode: please specify GEMINI_API_KEY to test interactive responses)."}
+        raise HTTPException(
+            status_code=503,
+            detail="AI conversational assistant is unavailable because GEMINI_API_KEY is not configured."
+        )
         
     try:
         # Retrieve context matching query from ChromaDB
@@ -188,24 +193,16 @@ def chat_assistant(req: ChatRequest):
         
     except Exception as e:
         print(f"Chat assistant error: {e}")
-        return {"response": f"I received your inquiry, but encountered an issue with the AI model ({str(e)}). Please try again in a moment."}
+        raise HTTPException(status_code=502, detail=f"AI model error: {str(e)}")
 
 # 4. Diet generator
 @app.post("/api/v1/ai/diet")
 def generate_diet(req: DietRequest):
     if not api_key:
-        return {
-            "bmi": req.height / ((req.weight / 100) ** 2) if req.height else 22,
-            "target_calories": 2000,
-            "target_protein": 70,
-            "meals": {
-                "breakfast": "Mock oats with milk",
-                "lunch": "Mock rice, steamed vegetables and chicken breast",
-                "dinner": "Mock soup and baked salmon",
-                "snacks": "Mixed almonds"
-            },
-            "water_intake": 2.5
-        }
+        raise HTTPException(
+            status_code=503,
+            detail="AI personalized diet planning is unavailable because GEMINI_API_KEY is not configured."
+        )
         
     try:
         bmi = round(req.weight / ((req.height / 100) ** 2), 1)
@@ -231,20 +228,16 @@ def generate_diet(req: DietRequest):
         return json.loads(response.text)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail=f"AI diet generation failed: {str(e)}")
 
 # 5. Symptom Checker
 @app.post("/api/v1/ai/symptoms")
 def check_symptoms(req: SymptomRequest):
     if not api_key:
-        return {
-            "questions": ["Do you feel chills or sweat?"],
-            "possible_causes": [
-                {"cause": "Mild Fever", "probability": "High", "description": "Common cold symptom."}
-            ],
-            "severity": "GREEN",
-            "advice": "Rest well and stay hydrated."
-        }
+        raise HTTPException(
+            status_code=503,
+            detail="AI clinical symptom checker is unavailable because GEMINI_API_KEY is not configured."
+        )
         
     try:
         prompt = get_symptom_prompt(req.query, req.age, req.gender)
@@ -260,13 +253,15 @@ def check_symptoms(req: SymptomRequest):
         return json.loads(response.text)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail=f"AI symptom analysis failed: {str(e)}")
 
 # 6. AI Fitbit Health score summary comment generator
 @app.post("/api/v1/ai/health-summary")
 def generate_health_summary(req: HealthSummaryRequest):
     if not api_key:
-        return {"summary": "Your vitals are looking positive. Keep up your active routine!"}
+        return {
+            "summary": f"Patient records show a {req.compliance_rate}% medication compliance rate and BMI of {req.bmi:.1f}. Routine medical review recommended."
+        }
         
     try:
         prompt = (
@@ -283,35 +278,6 @@ def generate_health_summary(req: HealthSummaryRequest):
         
         return {"summary": response.text.strip()}
     except Exception as e:
-        return {"summary": f"Metrics compilation complete. Compliance score: {req.compliance_rate}%. Keep up your medication routine!"}
-
-def get_mock_analysis(report_type: str) -> dict:
-    # Simulated responses for mock mode
-    analysis = {
-        "summary": f"Mock analysis for your {report_type} report. Values appear relatively normal.",
-        "severity": "GREEN",
-        "abnormal_values": [],
-        "recommendations": ["Drink at least 3 liters of water daily.", "Perform 30 minutes of mild exercise."],
-        "foods": ["Bananas", "Oatmeal", "Spinach"],
-        "next_steps": "No immediate doctor visit required. Repeat tests in 6 months for monitoring."
-    }
-    
-    if report_type == "CBC":
-        analysis["severity"] = "YELLOW"
-        analysis["summary"] = "Your CBC report shows a hemoglobin level slightly below the normal range, indicating mild anemia."
-        analysis["abnormal_values"] = [
-            {
-                "marker": "Hemoglobin",
-                "value": "10.8 g/dL (Normal: 12.0 - 16.0)",
-                "explanation": "Low hemoglobin means fewer red blood cells are carrying oxygen, leading to mild fatigue.",
-                "severity": "YELLOW"
-            }
-        ]
-        analysis["recommendations"].append("Focus on iron supplements and vitamins.")
-        analysis["foods"] = ["Red meat", "Beetroots", "Pomegranates", "Lentils"]
-        analysis["next_steps"] = "Schedule a routine check-up with a general physician for confirmation."
-        
-    return {
-        "extracted_text": f"MOCK {report_type} RAW EXTRACTED FINDINGS AND METRICS VALUES LOGS.",
-        "analysis": analysis
-    }
+        return {
+            "summary": f"Metrics compilation complete. Compliance score: {req.compliance_rate}%. Regular physician review advised."
+        }

@@ -35,25 +35,22 @@ export class ReportService {
     }
 
     // 2. Call FastAPI AI service to extract text, run OCR, and summarize
-    let extractedText = "Sample report raw text extraction.";
+    let extractedText = "";
     let aiAnalysis = {
-      summary: "We analyzed your report. Everything looks stable.",
+      summary: "Pending clinical analysis.",
       severity: "GREEN" as "GREEN" | "YELLOW" | "RED",
       abnormalValues: [] as any[],
-      recommendations: ["Maintain a balanced diet.", "Drink plenty of water."],
-      foods: ["Leafy greens", "Citrus fruits"],
-      nextSteps: "Schedule a routine check-up next month.",
+      recommendations: ["Consult your healthcare provider to review this laboratory report."],
+      foods: [] as string[],
+      nextSteps: "Share this document with your doctor for clinical evaluation.",
     };
 
     try {
       logger.info(`Calling FastAPI AI service to analyze report: ${file.originalname}`);
       
       // We pass the local path or file buffer to FastAPI
-      const formData = new FormData();
-      
-      // Node 18+ has native File/Blob, but standard file reading stream is safer
       const fileStream = fs.createReadStream(file.path);
-      const axiosForm = require("form-data"); // dynamic import helper fallback
+      const axiosForm = require("form-data");
       const form = new axiosForm();
       form.append("file", fileStream, file.originalname);
       form.append("report_type", reportType);
@@ -65,7 +62,7 @@ export class ReportService {
       });
 
       if (response.data) {
-        extractedText = response.data.extracted_text || extractedText;
+        extractedText = response.data.extracted_text || `Report: ${file.originalname}`;
         aiAnalysis = {
           summary: response.data.analysis.summary,
           severity: response.data.analysis.severity,
@@ -77,26 +74,16 @@ export class ReportService {
         logger.info(`Successfully parsed analysis results from FastAPI for ${file.originalname}`);
       }
     } catch (apiError: any) {
-      logger.error(`FastAPI report analysis failed: ${apiError.message}. Using mock analytics.`);
-      // Mock abnormal values for demo purposes if FastAPI fails
-      if (reportType === "CBC") {
-        aiAnalysis.severity = "YELLOW";
-        aiAnalysis.summary = "Your hemoglobin is slightly below the normal range, indicating mild anemia.";
-        aiAnalysis.abnormalValues = [
-          {
-            marker: "Hemoglobin",
-            value: "10.5 g/dL (Normal: 12-16)",
-            explanation: "Slightly low hemoglobin indicates reduced oxygen-carrying capacity in the blood.",
-            severity: "YELLOW",
-          },
-        ];
-        aiAnalysis.recommendations = [
-          "Increase intake of iron-rich foods.",
-          "Avoid drinking tea or coffee immediately after meals.",
-        ];
-        aiAnalysis.foods = ["Spinach", "Red meat", "Pomegranates", "Lentils"];
-        aiAnalysis.nextSteps = "Consult a physician to confirm iron deficiency and request a ferritin test.";
-      }
+      logger.error(`FastAPI report analysis failed: ${apiError.message}. Storing report without AI analysis.`);
+      extractedText = `Document: ${file.originalname} (Uploaded for manual medical review)`;
+      aiAnalysis = {
+        summary: "Automated AI analysis is currently unavailable for this report. The document has been securely stored for clinical review.",
+        severity: "GREEN",
+        abnormalValues: [],
+        recommendations: ["Please share this document directly with your treating physician for medical evaluation."],
+        foods: [],
+        nextSteps: "Consult your doctor or specialist to interpret this laboratory result.",
+      };
     }
 
     // 3. Save report to MongoDB Atlas
