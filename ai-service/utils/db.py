@@ -18,7 +18,7 @@ try:
     )
     CHROMA_AVAILABLE = True
     print("✔ ChromaDB vector client initialized successfully.")
-except ImportError:
+except (ImportError, Exception):
     print("[WARNING] ChromaDB package is not installed or failed to load. Falling back to pure Python JSON-based vector storage.")
 
 # Fallback File Path
