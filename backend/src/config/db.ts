@@ -8,15 +8,20 @@ export const connectDB = async (): Promise<void> => {
     return;
   }
 
-  try {
-    const conn = await mongoose.connect(env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-    });
-    logger.info(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error: any) {
-    logger.error(`Database connection error: ${error.message}`);
-    logger.warn("Server will continue running so HTTP health and CORS endpoints remain operational.");
-  }
+  const attempt = async () => {
+    try {
+      const conn = await mongoose.connect(env.MONGO_URI, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      });
+      logger.info(`MongoDB Connected: ${conn.connection.host}`);
+    } catch (error: any) {
+      logger.error(`Database connection error: ${error.message}. Retrying in 5 seconds...`);
+      setTimeout(attempt, 5000);
+    }
+  };
+
+  attempt();
 };
 
 export const disconnectDB = async (): Promise<void> => {

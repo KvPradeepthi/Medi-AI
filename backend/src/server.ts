@@ -4,6 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 
 import { env } from "./config/env";
 import { connectDB } from "./config/db";
@@ -58,10 +59,13 @@ app.use("/api/v1/reminders", reminderRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/chats", chatRoutes);
 
-// Root health check endpoint
+// Root health check endpoint (reports database connection status)
 app.get("/health", (req, res) => {
+  const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
+  const dbState = dbStates[mongoose.connection.readyState] || "unknown";
   res.status(200).json({
     status: "healthy",
+    database: dbState,
     timestamp: new Date().toISOString(),
     env: env.NODE_ENV,
   });
