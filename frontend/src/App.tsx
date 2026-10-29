@@ -15,6 +15,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import MediAIAssistant from "./pages/MediAIAssistant";
 import ReportUpload from "./pages/ReportUpload";
 import ReportHistory from "./pages/ReportHistory";
+import ReportDetail from "./pages/ReportDetail";
 import DoctorChat from "./pages/DoctorChat";
 import Appointments from "./pages/Appointments";
 import Emergency from "./pages/Emergency";
@@ -117,6 +118,16 @@ const AppContent: React.FC = () => {
           <PrivateRoute>
             <Layout>
               <ReportHistory />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/reports/:id"
+        element={
+          <PrivateRoute>
+            <Layout>
+              <ReportDetail />
             </Layout>
           </PrivateRoute>
         }
