@@ -38,6 +38,28 @@ export class AuthController {
     }
   };
 
+  sendOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      logger.info(`OTP send request for: ${req.body.email}`);
+      const result = await this.authService.sendLoginOtp(req.body.email);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      res.status(400);
+      next(error);
+    }
+  };
+
+  verifyOtp = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      logger.info(`OTP verify request for: ${req.body.email}`);
+      const result = await this.authService.verifyLoginOtp(req.body.email, req.body.otp);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      res.status(401);
+      next(error);
+    }
+  };
+
   forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info(`Forgot password request for: ${req.body.email}`);

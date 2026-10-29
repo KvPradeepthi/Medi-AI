@@ -8,6 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password?: string, googleToken?: string) => Promise<IUser>;
+  sendOtp: (email: string) => Promise<{ message: string; otp?: string }>;
+  verifyOtp: (email: string, otp: string) => Promise<IUser>;
   registerPatient: (data: any) => Promise<IUser>;
   registerDoctor: (data: any) => Promise<IUser>;
   logout: () => void;
@@ -54,6 +56,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       setIsLoading(false);
       throw error.response?.data?.message || error.message || "Login failed";
+    }
+  };
+
+  const sendOtp = async (email: string): Promise<{ message: string; otp?: string }> => {
+    setIsLoading(true);
+    try {
+      const response = await authAPI.sendOtp({ email });
+      setIsLoading(false);
+      return response.data;
+    } catch (error: any) {
+      setIsLoading(false);
+      throw error.response?.data?.message || error.message || "Failed to send OTP";
+    }
+  };
+
+  const verifyOtp = async (email: string, otp: string): Promise<IUser> => {
+    setIsLoading(true);
+    try {
+      const response = await authAPI.verifyOtp({ email, otp });
+      const { user: loggedUser, token: authToken } = response.data;
+      
+      localStorage.setItem("mediai_token", authToken);
+      setToken(authToken);
+      setUser(loggedUser);
+      return loggedUser;
+    } catch (error: any) {
+      setIsLoading(false);
+      throw error.response?.data?.message || error.message || "OTP verification failed";
     }
   };
 
@@ -110,6 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isLoading,
         login,
+        sendOtp,
+        verifyOtp,
         registerPatient,
         registerDoctor,
         logout,

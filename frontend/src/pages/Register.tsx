@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Sparkles, ArrowRight, UserPlus, HeartPulse, ShieldAlert } from "lucide-react";
+import { Sparkles, ArrowRight, UserPlus, HeartPulse, KeyRound } from "lucide-react";
 
 const Register: React.FC = () => {
   const { registerPatient, registerDoctor } = useAuth();
@@ -86,7 +86,7 @@ const Register: React.FC = () => {
         </div>
 
         {/* Role toggle tabs */}
-        <div className="grid grid-cols-2 p-1.5 bg-slate-950/80 border border-slate-850 rounded-2xl mb-6">
+        <div className="grid grid-cols-2 p-1.5 bg-slate-950/80 border border-slate-850 rounded-2xl mb-4">
           <button
             type="button"
             onClick={() => { setRole("patient"); setError(""); setInfo(""); }}
@@ -107,6 +107,20 @@ const Register: React.FC = () => {
             <Sparkles className="w-4 h-4" />
             Doctor Credentials
           </button>
+        </div>
+
+        {/* Fast Passwordless OTP Sign-Up Callout */}
+        <div className="mb-6 p-3 bg-slate-900/60 border border-emerald-500/20 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs text-slate-300">Fast Passwordless Access</span>
+          </div>
+          <Link
+            to="/login?tab=otp"
+            className="text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+          >
+            Sign In / Up with 6-Digit OTP &rarr;
+          </Link>
         </div>
 
         {error && (
@@ -160,80 +174,81 @@ const Register: React.FC = () => {
           </div>
 
           {role === "patient" ? (
-            /* Patient profile form fields */
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Age</label>
-                <input
-                  type="number"
-                  placeholder="25"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
-                />
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Age</label>
+                  <input
+                    type="number"
+                    placeholder="28"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as any)}
+                    className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Gender</label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value as any)}
-                  className="w-full px-3 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Blood Group</label>
+                  <input
+                    type="text"
+                    placeholder="O+"
+                    value={bloodGroup}
+                    onChange={(e) => setBloodGroup(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">Phone</label>
+                  <input
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Blood Group</label>
-                <input
-                  type="text"
-                  placeholder="O+"
-                  value={bloodGroup}
-                  onChange={(e) => setBloodGroup(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
-                />
-              </div>
-            </div>
+            </>
           ) : (
-            /* Doctor credentials fields */
-            <div className="grid sm:grid-cols-2 gap-4">
+            <>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Specialization</label>
+                <label className="text-xs font-semibold text-slate-400">Medical Specialization</label>
                 <input
                   type="text"
                   required
-                  placeholder="Cardiologist"
+                  placeholder="Cardiologist, Neurologist, etc."
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Affiliated Hospital</label>
+                <label className="text-xs font-semibold text-slate-400">Primary Affiliated Hospital / Clinic</label>
                 <input
                   type="text"
                   required
-                  placeholder="City Health Center"
+                  placeholder="Apex City Hospital"
                   value={hospital}
                   onChange={(e) => setHospital(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
                 />
               </div>
-            </div>
-          )}
-
-          {role === "patient" && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400">Phone Number</label>
-              <input
-                type="tel"
-                placeholder="+1 (555) 000-0000"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
-              />
-            </div>
+            </>
           )}
 
           <button

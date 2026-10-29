@@ -26,6 +26,8 @@ export const authAPI = {
   registerPatient: (data: any) => api.post("/auth/register-patient", data),
   registerDoctor: (data: any) => api.post("/auth/register-doctor", data),
   login: (data: any) => api.post("/auth/login", data),
+  sendOtp: (data: { email: string }) => api.post("/auth/send-otp", data),
+  verifyOtp: (data: { email: string; otp: string }) => api.post("/auth/verify-otp", data),
   forgotPassword: (data: { email: string }) => api.post("/auth/forgot-password", data),
   resetPassword: (data: any) => api.post("/auth/reset-password", data),
 };

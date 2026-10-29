@@ -10,23 +10,6 @@ const controller = new AuthController();
  *   post:
  *     summary: Register a new patient
  *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, password]
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       201:
- *         description: Registered successfully
  */
 router.post("/register-patient", controller.registerPatient);
 
@@ -36,16 +19,6 @@ router.post("/register-patient", controller.registerPatient);
  *   post:
  *     summary: Request doctor account approval
  *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, password, specialization, hospital]
- *     responses:
- *       201:
- *         description: Registered doctor pending verification
  */
 router.post("/register-doctor", controller.registerDoctor);
 
@@ -55,18 +28,26 @@ router.post("/register-doctor", controller.registerDoctor);
  *   post:
  *     summary: Login user
  *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email]
- *     responses:
- *       200:
- *         description: Authenticated successfully
  */
 router.post("/login", controller.login);
+
+/**
+ * @openapi
+ * /auth/send-otp:
+ *   post:
+ *     summary: Send 6-digit OTP code to email
+ *     tags: [Authentication]
+ */
+router.post("/send-otp", controller.sendOtp);
+
+/**
+ * @openapi
+ * /auth/verify-otp:
+ *   post:
+ *     summary: Verify 6-digit OTP code and authenticate
+ *     tags: [Authentication]
+ */
+router.post("/verify-otp", controller.verifyOtp);
 
 /**
  * @openapi
@@ -74,13 +55,6 @@ router.post("/login", controller.login);
  *   post:
  *     summary: Request OTP reset email
  *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email]
  */
 router.post("/forgot-password", controller.forgotPassword);
 

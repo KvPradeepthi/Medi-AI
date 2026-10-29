@@ -262,4 +262,109 @@ describe("AuthService Security & Functionality Tests", () => {
       ).rejects.toThrow("Invalid or expired password reset token");
     });
   });
+
+  describe("D. 6-Digit OTP Verification Flow", () => {
+    it("sendLoginOtp should generate a 6-digit numeric OTP and set 10-minute expiry", async () => {
+      const mockUser: any = {
+        _id: "user-otp-1",
+        email: "otpuser@example.com",
+        role: "patient",
+        save: jest.fn().mockResolvedValue(true),
+      };
+      mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+
+      const res = await authService.sendLoginOtp("otpuser@example.com");
+
+      expect(mockUser.save).toHaveBeenCalled();
+      expect(mockUser.otpCode).toBeDefined();
+      expect(mockUser.otpCode).toMatch(/^\d{6}$/); // Exactly 6 digits
+      expect(mockUser.otpExpires.getTime()).toBeGreaterThan(Date.now());
+      expect(res.message).toContain("Verification code");
+      expect(res.otp).toBe(mockUser.otpCode);
+    });
+
+    it("sendLoginOtp should auto-register new patients if email does not exist", async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+      const mockSavedNewUser: any = {
+        _id: "new-otp-user",
+        email: "newperson@gmail.com",
+        name: "newperson",
+        role: "patient",
+        save: jest.fn().mockResolvedValue(true),
+      };
+      mockUserRepo.create.mockResolvedValue(mockSavedNewUser);
+
+      const res = await authService.sendLoginOtp("newperson@gmail.com");
+
+      expect(mockUserRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "newperson@gmail.com",
+          role: "patient",
+        })
+      );
+      expect(mockSavedNewUser.save).toHaveBeenCalled();
+      expect(mockSavedNewUser.otpCode).toMatch(/^\d{6}$/);
+      expect(res.otp).toBe(mockSavedNewUser.otpCode);
+    });
+
+    it("sendLoginOtp should block unapproved doctors", async () => {
+      mockUserRepo.findByEmail.mockResolvedValue({
+        _id: "doc-pending",
+        email: "pendingdoc@hospital.com",
+        role: "doctor",
+        status: "pending",
+      });
+
+      await expect(
+        authService.sendLoginOtp("pendingdoc@hospital.com")
+      ).rejects.toThrow("Your doctor account has not been approved by an administrator yet.");
+    });
+
+    it("verifyLoginOtp should reject invalid OTP code", async () => {
+      mockUserRepo.findByEmail.mockResolvedValue({
+        _id: "user-otp-2",
+        email: "otpuser@example.com",
+        otpCode: "654321",
+        otpExpires: new Date(Date.now() + 5 * 60 * 1000),
+      });
+
+      await expect(
+        authService.verifyLoginOtp("otpuser@example.com", "999999")
+      ).rejects.toThrow("Invalid verification code");
+    });
+
+    it("verifyLoginOtp should reject expired OTP code", async () => {
+      mockUserRepo.findByEmail.mockResolvedValue({
+        _id: "user-otp-3",
+        email: "otpuser@example.com",
+        otpCode: "123456",
+        otpExpires: new Date(Date.now() - 1000), // Expired in past
+      });
+
+      await expect(
+        authService.verifyLoginOtp("otpuser@example.com", "123456")
+      ).rejects.toThrow("OTP verification code has expired");
+    });
+
+    it("verifyLoginOtp should authenticate user, clear OTP, and issue token", async () => {
+      const mockSave = jest.fn().mockResolvedValue(true);
+      const mockUser: any = {
+        _id: "user-valid-otp",
+        email: "otpuser@example.com",
+        role: "patient",
+        otpCode: "582194",
+        otpExpires: new Date(Date.now() + 5 * 60 * 1000),
+        save: mockSave,
+      };
+      mockUserRepo.findByEmail.mockResolvedValue(mockUser);
+
+      const res = await authService.verifyLoginOtp("otpuser@example.com", "582194");
+
+      expect(res.token).toBeDefined();
+      expect(res.user.email).toBe("otpuser@example.com");
+      expect(mockSave).toHaveBeenCalled();
+      expect(mockUser.otpCode).toBeUndefined();
+      expect(mockUser.otpExpires).toBeUndefined();
+    });
+  });
 });

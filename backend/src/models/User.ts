@@ -36,6 +36,8 @@ export interface IUser extends Document {
   rating: number;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  otpCode?: string;
+  otpExpires?: Date;
 }
 
 const UserSchema: Schema = new Schema(
@@ -47,6 +49,8 @@ const UserSchema: Schema = new Schema(
     googleId: { type: String },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    otpCode: { type: String },
+    otpExpires: { type: Date },
     
     // Patient Details
     age: { type: Number },

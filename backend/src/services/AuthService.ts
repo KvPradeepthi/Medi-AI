@@ -7,9 +7,11 @@ import { logger } from "../config/logger";
 import { UserRepository } from "../repositories/UserRepository";
 import User, { IUser } from "../models/User";
 import { RegisterPatientDto, RegisterDoctorDto, LoginDto } from "../dto/AuthDto";
+import { EmailService } from "./EmailService";
 
 export class AuthService {
   private userRepository = new UserRepository();
+  private emailService = new EmailService();
 
   private generateToken(userId: string): string {
     return jwt.sign({ id: userId }, env.JWT_SECRET, {
@@ -94,7 +96,7 @@ export class AuthService {
 
     // Google-only users who try logging in standardly
     if (!user.password) {
-      throw new Error("Account registered via Google. Please sign in with Google.");
+      throw new Error("Account registered via Google. Please sign in with Google or use OTP login.");
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.password);
@@ -192,6 +194,90 @@ export class AuthService {
     return { user, token };
   }
 
+  // 6-digit OTP Generation for instant email verification login
+  async sendLoginOtp(email: string): Promise<{ message: string; otp?: string }> {
+    if (!email) {
+      throw new Error("Email address is required");
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    let user = await this.userRepository.findByEmail(normalizedEmail);
+
+    if (user && user.role === "doctor" && user.status !== "approved") {
+      throw new Error("Your doctor account has not been approved by an administrator yet.");
+    }
+
+    if (!user) {
+      // Auto-register new user as a patient so ANYONE can sign in via OTP
+      const name = normalizedEmail.split("@")[0];
+      user = await this.userRepository.create({
+        name,
+        email: normalizedEmail,
+        role: "patient",
+        medicalHistory: [],
+        allergies: [],
+      });
+      logger.info(`Auto-registered new patient for OTP verification: ${normalizedEmail}`);
+    }
+
+    // Cryptographically secure 6-digit numeric OTP code
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.otpCode = otp;
+    user.otpExpires = expires;
+    await user.save();
+
+    logger.info(`Generated 6-digit login OTP for ${normalizedEmail}: ${otp}`);
+
+    // Send email via email service (falls back to screen prompt if SMTP not configured)
+    const emailResult = await this.emailService.sendOtpEmail(normalizedEmail, otp, "login");
+
+    return {
+      message: emailResult.sent
+        ? `Verification code sent to ${normalizedEmail}`
+        : `Verification code generated for ${normalizedEmail}`,
+      otp: emailResult.previewOtp,
+    };
+  }
+
+  // 6-digit OTP Verification
+  async verifyLoginOtp(email: string, otp: string): Promise<{ user: IUser; token: string }> {
+    if (!email || !otp) {
+      throw new Error("Email and OTP code are required");
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.userRepository.findByEmail(normalizedEmail);
+
+    if (!user) {
+      throw new Error("User account not found");
+    }
+
+    if (user.role === "doctor" && user.status !== "approved") {
+      throw new Error("Your doctor account has not been approved by an administrator yet.");
+    }
+
+    if (!user.otpCode || !user.otpExpires) {
+      throw new Error("No active OTP requested. Please request a new verification code.");
+    }
+
+    if (new Date() > user.otpExpires) {
+      throw new Error("OTP verification code has expired. Please request a new one.");
+    }
+
+    if (user.otpCode !== otp.trim()) {
+      throw new Error("Invalid verification code. Please check and try again.");
+    }
+
+    // Clear used OTP
+    user.otpCode = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    logger.info(`User successfully authenticated via OTP: ${user.email} (Role: ${user.role})`);
+    const token = this.generateToken(user._id.toString());
+    return { user, token };
+  }
+
   async forgotPassword(email: string): Promise<{ message: string }> {
     if (!email) {
       throw new Error("Email address is required");
@@ -212,8 +298,6 @@ export class AuthService {
       });
 
       logger.info(`Password reset token generated for user: ${normalizedEmail}`);
-      // In production with an email provider (SES, SendGrid, SMTP), send email with rawToken here.
-      // Do NOT log the token or return it in the HTTP response.
     }
 
     return {

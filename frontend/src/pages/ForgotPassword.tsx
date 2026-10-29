@@ -209,10 +209,17 @@ const ForgotPassword: React.FC = () => {
           </form>
         )}
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 space-y-3 text-center">
+          <Link
+            to="/login?tab=otp"
+            className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center justify-center gap-1.5 transition font-semibold"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            Prefer instant sign in? Use 6-Digit OTP &rarr;
+          </Link>
           <Link
             to="/login"
-            className="text-xs text-slate-400 hover:text-emerald-400 flex items-center justify-center gap-1.5 transition font-semibold"
+            className="text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1.5 transition font-semibold"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to Sign In
