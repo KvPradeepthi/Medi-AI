@@ -59,6 +59,21 @@ app.use("/api/v1/reminders", reminderRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/chats", chatRoutes);
 
+// Root endpoint: welcome info and links
+app.get("/", (req, res) => {
+  const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
+  const dbState = dbStates[mongoose.connection.readyState] || "unknown";
+  res.status(200).json({
+    message: "Welcome to MediAI Healthcare Platform API",
+    status: "running",
+    database: dbState,
+    docs: "/api-docs",
+    health: "/health",
+    frontend: "https://mediai-frontend-hygh.onrender.com",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Root health check endpoint (reports database connection status)
 app.get("/health", (req, res) => {
   const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
