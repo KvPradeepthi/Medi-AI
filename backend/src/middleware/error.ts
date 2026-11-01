@@ -8,6 +8,14 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
+  // Gracefully handle initial database connection buffering
+  if (err.name === "MongooseError" && err.message && err.message.includes("buffering timed out")) {
+    logger.warn(`Database query buffered before connection was ready: ${req.method} ${req.url}`);
+    return res.status(503).json({
+      message: "Database connection is still establishing. Please wait a few seconds and try again.",
+    });
+  }
+
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   
   logger.error({
